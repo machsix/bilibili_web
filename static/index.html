@@ -1,0 +1,100 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Bilibili Player</title>
+  <link rel="apple-touch-icon" sizes="180x180" href="/static/icons/apple-touch-icon.png" />
+  <link rel="icon" type="image/png" sizes="32x32" href="/static/icons/favicon-32x32.png" />
+  <link rel="icon" type="image/png" sizes="16x16" href="/static/icons/favicon-16x16.png" />
+  <link rel="manifest" href="/static/icons/site.webmanifest" />
+  <link rel="shortcut icon" href="/static/icons/favicon.ico" />
+  <link rel="stylesheet" href="https://fonts.googleapis.com/icon?family=Material+Icons" />
+  <link rel="stylesheet" href="/static/style.css" />
+</head>
+<body>
+
+  <!-- ── Header ─────────────────────────────────────────────────────────── -->
+  <header class="header">
+    <div class="logo">▶ Bilibili Player</div>
+    <div class="url-bar">
+      <input
+        id="playlist-url"
+        type="text"
+        placeholder="Paste a Bilibili playlist, collection, or video URL…"
+        autocomplete="off"
+      />
+      <button id="load-btn" title="Load playlist"><span class="material-icons">playlist_add</span></button>
+      <button id="clear-btn" title="Clear playlist"><span class="material-icons">delete_outline</span></button>
+      <button id="download-btn" title="Download M3U" disabled><span class="material-icons">download</span></button>
+    </div>
+  </header>
+
+  <!-- Download popup -->
+  <div class="download-popup hidden" id="download-popup">
+    <label class="popup-option">
+      <input type="checkbox" id="dl-audio-only" />
+      <span>Audio only</span>
+    </label>
+    <label class="popup-option">
+      <input type="checkbox" id="dl-redirect" />
+      <span>Direct CDN (redirect)</span>
+    </label>
+    <a id="dl-link" class="popup-download-btn" href="#" download>Download .m3u</a>
+  </div>
+
+  <!-- ── Main layout ────────────────────────────────────────────────────── -->
+  <main class="layout">
+
+    <!-- Sidebar: playlist -->
+    <aside class="sidebar" id="sidebar">
+      <div class="sidebar-header">
+        <span id="playlist-count"></span>
+      </div>
+      <ul class="playlist" id="playlist"></ul>
+    </aside>
+
+    <!-- Player area -->
+    <section class="player-area">
+
+      <!-- Video / cover display -->
+      <div class="media-container" id="media-container">
+        <video
+          id="video-player"
+          controls
+          preload="auto"
+          crossorigin="anonymous"
+          playsinline
+        ></video>
+        <audio id="audio-player" controls preload="auto"></audio>
+        <div class="cover-overlay" id="cover-overlay">
+          <img id="cover-img" src="" alt="cover" />
+          <div class="cover-title" id="cover-title"></div>
+        </div>
+        <div class="spinner hidden" id="spinner">
+          <div class="spin-ring"></div>
+          <div class="spin-label">Loading…</div>
+        </div>
+      </div>
+
+      <!-- Controls bar -->
+      <div class="controls">
+        <button id="prev-btn" title="Previous"><span class="material-icons">skip_previous</span></button>
+        <span id="now-playing" class="now-playing">No video loaded</span>
+        <button id="next-btn" title="Next"><span class="material-icons">skip_next</span></button>
+        <label class="audio-toggle" title="Audio only — hides video and plays sound only">
+          <input type="checkbox" id="audio-only-toggle" />
+          <span class="toggle-track"></span>
+          <span class="toggle-label">Audio only</span>
+        </label>
+      </div>
+
+      <!-- Error banner -->
+      <div class="error-banner hidden" id="error-banner"></div>
+
+    </section>
+  </main>
+
+  <script src="/static/player.js"></script>
+</body>
+</html>

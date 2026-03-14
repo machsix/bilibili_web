@@ -1,0 +1,8 @@
+fastapi
+uvicorn[standard]
+bilibili-api-dev
+httpx
+python-multipart
+aiohttp
+chompjs
+curl_cffi
