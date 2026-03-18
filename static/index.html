@@ -44,9 +44,9 @@
       <input type="checkbox" id="dl-audio-only" />
       <span>Audio only</span>
     </label>
-    <label class="popup-option" style="display: none"></label>
-      <input type="checkbox" id="dl-redirect" style="display: none;"/>
-      <!-- <span>Direct CDN (redirect)</span> -->
+    <label class="popup-option">
+      <input type="checkbox" id="dl-redirect" />
+      <span>Direct CDN (redirect)</span>
     </label>
     <a id="dl-link" class="popup-download-btn" href="#" download>Download .m3u</a>
   </div>
@@ -70,7 +70,10 @@
         <div id="artplayer"></div>
         <audio id="audio-player" controls preload="auto"></audio>
         <div class="cover-overlay" id="cover-overlay">
-          <img id="cover-img" src="" alt="cover" />
+          <div class="cover-art-wrap">
+            <img id="cover-img" src="" alt="cover" />
+            <span class="cover-page-badge hidden" id="cover-page-badge"></span>
+          </div>
           <div class="cover-title" id="cover-title"></div>
         </div>
         <div class="spinner hidden" id="spinner">

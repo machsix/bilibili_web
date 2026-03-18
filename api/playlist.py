@@ -11,9 +11,11 @@ Supports:
 import asyncio
 import re
 from typing import Optional
+from dataclasses import dataclass
 
 import httpx
 from bilibili_api import favorite_list, video
+from .video import VideoItem
 
 # Direct HTTP headers for Bilibili API calls.
 _BILI_HEADERS = {
@@ -94,17 +96,17 @@ def _extract_bvid(url: str) -> Optional[str]:
     return m.group(1) if m else None
 
 
-def _archive_to_item(v: dict) -> dict:
-    return {
-        "bvid": v.get("bvid", ""),
-        "title": v.get("title", ""),
-        "cover": v.get("pic", ""),
-        "duration": v.get("duration", 0),
-        "owner": v.get("author", "") or v.get("owner", ""),
-    }
+def _archive_to_item(v: dict) -> VideoItem:
+    return VideoItem(
+        bvid=v.get("bvid", ""),
+        title=v.get("title", ""),
+        cover=v.get("pic", ""),
+        duration=v.get("duration", 0),
+        owner=v.get("author", "") or v.get("owner", ""),
+    )
 
 
-async def _fetch_season(uid: int, sid: int) -> list[dict]:
+async def _fetch_season(uid: int, sid: int) -> list[VideoItem]:
     """Fetch all videos from a 合集 (season) via direct API."""
     items = []
     page_num = 1
@@ -130,7 +132,7 @@ async def _fetch_season(uid: int, sid: int) -> list[dict]:
     return items
 
 
-async def _fetch_series(uid: int, sid: int) -> list[dict]:
+async def _fetch_series(uid: int, sid: int) -> list[VideoItem]:
     """Fetch all videos from a 系列 (series) via direct API."""
     items = []
     pn = 1
@@ -156,7 +158,7 @@ async def _fetch_series(uid: int, sid: int) -> list[dict]:
     return items
 
 
-async def _fetch_favorite(fid: int) -> list[dict]:
+async def _fetch_favorite(fid: int) -> list[VideoItem]:
     """Fetch all videos from a favorite list by fid (media_id)."""
     items = []
     page = 1
@@ -166,24 +168,56 @@ async def _fetch_favorite(fid: int) -> list[dict]:
         )
         medias = data.get("medias") or []
         for m in medias:
+            parts = m.get("page") or 1
             bvid = m.get("bvid") or m.get("bv_id")
             if not bvid:
                 continue
-            items.append({
-                "bvid": bvid,
-                "title": m.get("title", ""),
-                "cover": m.get("cover", ""),
-                "duration": m.get("duration", 0),
-                "owner": (m.get("upper") or {}).get("name", ""),
-            })
+            if parts > 1:
+                items += await _fetch_pages(bvid)
+            else:
+                items.append(VideoItem(
+                    bvid=bvid,
+                    title=m.get("title", ""),
+                    cover=m.get("cover", ""),
+                    duration=m.get("duration", 0),
+                    owner=(m.get("upper") or {}).get("name", ""),
+                ))
         if not data.get("has_more"):
             break
         page += 1
     return items
 
 
-async def get_playlist(url: str) -> list[dict]:
-    """Return a list of {bvid, title, cover, duration, owner} dicts."""
+async def _fetch_pages(bvid: str) -> list[VideoItem]:
+    """Fetch video info for video with multiple pages."""
+    v_obj = video.Video(bvid=bvid)
+    info = await v_obj.get_info()
+    pages = info.get("pages", [])
+    if len(pages) <= 1:
+        return [VideoItem(
+            bvid=bvid,
+            title=info.get("title", ""),
+            cover=info.get("pic", ""),
+            duration=info.get("duration", 0),
+            owner=(info.get("owner") or {}).get("name", ""),
+            page=0,
+        )]
+    return [
+        VideoItem(
+            bvid=bvid,
+            title=f"{info.get('title','')} - {p.get('part', f'P{i+1}')}",
+            cover=info.get("pic", ""),
+            duration=p.get("duration", 0),
+            owner=(info.get("owner") or {}).get("name", ""),
+            page=i,
+            multipage=True,
+        )
+        for i, p in enumerate(pages)
+    ]
+
+
+async def get_playlist(url: str) -> list[VideoItem]:
+    """Return a list of VideoItem instances."""
     url = url.strip()
 
     # ── Favorite list ──────────────────────────────────────────────────────────
@@ -211,29 +245,7 @@ async def get_playlist(url: str) -> list[dict]:
     # ── Single video (possibly multi-page) ─────────────────────────────────────
     bvid = _extract_bvid(url)
     if bvid:
-        v_obj = video.Video(bvid=bvid)
-        info = await v_obj.get_info()
-        pages = info.get("pages", [])
-        if len(pages) <= 1:
-            return [{
-                "bvid": bvid,
-                "title": info.get("title", ""),
-                "cover": info.get("pic", ""),
-                "duration": info.get("duration", 0),
-                "owner": (info.get("owner") or {}).get("name", ""),
-                "page": 0,
-            }]
-        return [
-            {
-                "bvid": bvid,
-                "title": f"{info.get('title','')} - {p.get('part', f'P{i+1}')}",
-                "cover": info.get("pic", ""),
-                "duration": p.get("duration", 0),
-                "owner": (info.get("owner") or {}).get("name", ""),
-                "page": i,
-            }
-            for i, p in enumerate(pages)
-        ]
+        return await _fetch_pages(bvid)
 
     raise ValueError(f"Unrecognized Bilibili URL: {url}")
 

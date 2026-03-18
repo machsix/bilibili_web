@@ -14,6 +14,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse, HTMLResponse, PlainTextResponse, RedirectResponse
 from pydantic import BaseModel
+from typing import Optional
 
 from api.playlist import get_playlist, _fetch_season, _fetch_series, _fetch_favorite
 from api.video import get_video_info
@@ -75,8 +76,8 @@ async def api_video_info(bvid: str, page: int = 0):
 @app.get("/m3u")
 async def m3u_playlist(request: Request, video: int = 1, redirect: int = -1,
                        quality: int = 1,
-                       url: str = None,
-                       uid: int = None, sid: int = None, fid: int = None):
+                       url: Optional[str] = None,
+                       uid: Optional[int] = None, sid: Optional[int] = None, fid: Optional[int] = None):
     """Generate an M3U playlist for an external player (e.g. mpv, VLC).
 
     Parameters
@@ -119,7 +120,7 @@ async def m3u_playlist(request: Request, video: int = 1, redirect: int = -1,
         # use low quality flv stream from bilibili directly
         stream_path = "video"
         suffix = "&quality=0"
-        redirect = 1 if redirect == -1 else redirect
+        redirect = 0 if redirect == -1 else redirect
     else:
         stream_path = "audio"
         suffix = f"&quality={max(int(quality),1)}"
@@ -128,10 +129,12 @@ async def m3u_playlist(request: Request, video: int = 1, redirect: int = -1,
 
     lines = ["#EXTM3U", f"# Source: {request.url}"]
     for item in items:
-        bvid = item["bvid"]
-        title = item.get("title", bvid)
-        duration = int(item.get("duration") or 0)
-        page = int(item.get("page") or 0)
+        bvid = item.bvid
+        title = item.title or bvid
+        if item.multipage:
+            title += f" (P{item.page+1})"
+        duration = int(item.duration or 0)
+        page = int(item.page or 0)
         lines.append(f"#EXTINF:{duration},{title}")
         lines.append(f"{base}/api/stream/{stream_path}/{bvid}?page={page}{suffix}")
 
@@ -144,7 +147,7 @@ async def m3u_playlist(request: Request, video: int = 1, redirect: int = -1,
 
 # ── Play endpoint — open web player directly ──────────────────────────────────
 @app.get("/play")
-async def play(uid: int = None, sid: int = None, fid: int = None, bvid: str = None):
+async def play(uid: Optional[int] = None, sid: Optional[int] = None, fid: Optional[int] = None, bvid: Optional[str] = None):
     """Redirect to the web player with a playlist pre-loaded.
 
     /play?uid=94286793&sid=7005584   — season or series

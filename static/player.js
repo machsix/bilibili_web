@@ -23,6 +23,7 @@
   const audioPlayer      = document.getElementById('audio-player');
   const coverOverlay     = document.getElementById('cover-overlay');
   const coverImg         = document.getElementById('cover-img');
+  const coverPageBadge   = document.getElementById('cover-page-badge');
   const coverTitle       = document.getElementById('cover-title');
   const spinner          = document.getElementById('spinner');
   const nowPlaying       = document.getElementById('now-playing');
@@ -30,6 +31,9 @@
   const nextBtn          = document.getElementById('next-btn');
   const audioToggle      = document.getElementById('audio-only-toggle');
   const errorBanner      = document.getElementById('error-banner');
+  const nowPlayingTextEl = document.createElement('span');
+  nowPlayingTextEl.className = 'now-playing-text';
+  nowPlaying.replaceChildren(nowPlayingTextEl);
 
   // ── State ─────────────────────────────────────────────────────────────────
   let playlist     = [];   // [{bvid, title, cover, duration, page}, ...]
@@ -99,6 +103,26 @@
   function thumbUrl(url) {
     if (!url) return '';
     return `/api/thumb?url=${encodeURIComponent(url)}`;
+  }
+
+  function refreshNowPlayingScroll() {
+    nowPlaying.classList.remove('scrolling');
+    nowPlaying.style.removeProperty('--np-overflow');
+    nowPlaying.style.removeProperty('--np-duration');
+
+    requestAnimationFrame(() => {
+      const overflow = Math.ceil(nowPlayingTextEl.scrollWidth - nowPlaying.clientWidth);
+      if (overflow <= 8) return;
+      const duration = Math.max(4, overflow / 35);
+      nowPlaying.style.setProperty('--np-overflow', `${overflow}px`);
+      nowPlaying.style.setProperty('--np-duration', `${duration.toFixed(2)}s`);
+      nowPlaying.classList.add('scrolling');
+    });
+  }
+
+  function setNowPlayingText(text) {
+    nowPlayingTextEl.textContent = text;
+    refreshNowPlayingScroll();
   }
 
   function updateMediaSession(idx) {
@@ -218,9 +242,15 @@
       const li = document.createElement('li');
       li.className = 'playlist-item' + (idx === currentIndex ? ' active' : '');
       li.dataset.index = idx;
+      const page = Number(item.page || 0);
+      const multipage = !!item.multipage;
+
 
       li.innerHTML = `
-        <img class="item-thumb" src="${thumbUrl(item.cover)}" alt="" loading="lazy" />
+        <div class="item-thumb-wrap">
+          <img class="item-thumb" src="${thumbUrl(item.cover)}" alt="" loading="lazy" />
+          ${multipage ? `<span class="item-page-badge">${page+1}</span>` : ''}
+        </div>
         <div class="item-info">
           <div class="item-index">${idx + 1}</div>
           <div class="item-title">${escHtml(item.title)}</div>
@@ -288,14 +318,27 @@
     currentIndex = idx;
     persistIndex();
     const item = playlist[idx];
+    const part = Number(item.page || 0);
 
     setActiveItem(idx);
-    nowPlaying.textContent = `${idx + 1} / ${playlist.length}  –  ${item.title}`;
+    if (item.multipage) {
+      setNowPlayingText(`${idx + 1} / ${playlist.length}  –  ${item.title} (P${part + 1})`);
+    } else {
+      setNowPlayingText(`${idx + 1} / ${playlist.length}  –  ${item.title}`);
+    }
     prevBtn.disabled = idx === 0;
     nextBtn.disabled = idx === playlist.length - 1;
 
     // Update cover for audio-only mode
+    const page = Number(item.page || 0);
     coverImg.src   = thumbUrl(item.cover);
+    if (page) {
+      coverPageBadge.textContent = String(page);
+      coverPageBadge.classList.remove('hidden');
+    } else {
+      coverPageBadge.textContent = '';
+      coverPageBadge.classList.add('hidden');
+    }
     coverTitle.textContent = item.title;
 
     // ── Media Session (lock screen controls) ────────────────────────────────
@@ -398,7 +441,7 @@
     audioPlayer.pause();
     audioPlayer.src = '';
     hideCoverOverlay();
-    nowPlaying.textContent = 'No video loaded';
+    setNowPlayingText('No video loaded');
     prevBtn.disabled = true;
     nextBtn.disabled = true;
     downloadBtn.disabled = true;
@@ -412,7 +455,7 @@
     if (!url) return;
     const params = new URLSearchParams({ url });
     if (dlAudioOnly.checked) params.set('video', '0');
-    // if (dlRedirect.checked)  params.set('redirect', '1');
+    if (dlRedirect.checked)  params.set('redirect', '1');
     dlLink.href = `/m3u?${params}`;
   }
 
@@ -485,6 +528,8 @@
   prevBtn.disabled = true;
   nextBtn.disabled = true;
   showCoverOverlay(false);
+  setNowPlayingText('No video loaded');
+  window.addEventListener('resize', refreshNowPlayingScroll);
 
   // Auto-load from /play?... redirect or direct URL param
   const autoload = new URLSearchParams(window.location.search).get('autoload');
