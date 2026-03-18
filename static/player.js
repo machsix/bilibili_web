@@ -415,21 +415,45 @@
     if (audioOnly) {
       // Switch to audio-only
       const videoTime = videoPlayer.currentTime;
+      const wasMuted = videoPlayer.muted;
+      const volume = videoPlayer.volume;
       stopVideo();
       showCoverOverlay(true);
       audioPlayer.src = audioUrl;
       audioPlayer.load();
+      audioPlayer.muted = wasMuted;
+      audioPlayer.volume = volume;
       audioPlayer.currentTime = videoTime;
       await audioPlayer.play().catch(() => {});
     } else {
       // Switch back to video
       const audioTime = audioPlayer.currentTime;
+      const wasMuted = audioPlayer.muted;
+      const volume = audioPlayer.volume;
       audioPlayer.pause();
       audioPlayer.src = '';
       hideCoverOverlay();
+
+      const infoRes = await fetch(`/api/stream/info/${item.bvid}?page=${page}`);
+      if (!infoRes.ok) {
+        const err = await infoRes.json().catch(() => ({}));
+        throw new Error(err.detail || `HTTP ${infoRes.status}`);
+      }
+      const { type } = await infoRes.json();
+
+      resetSyncController();
       videoPlayer.src = videoUrl;
       videoPlayer.load();
+      videoPlayer.muted = wasMuted;
+      videoPlayer.volume = volume;
       videoPlayer.currentTime = audioTime;
+
+      if (type === 'dash') {
+        syncAudioToVideo(audioUrl);
+      } else {
+        stopSyncAudio();
+      }
+
       await videoPlayer.play().catch(() => {});
     }
   });
