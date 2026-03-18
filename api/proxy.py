@@ -64,19 +64,21 @@ async def _proxy_stream(cdn_url: str, request: Request) -> StreamingResponse:
 
 
 @router.get("/api/stream/video/{bvid}")
-async def stream_video(bvid: str, request: Request, page: int = 0):
+async def stream_video(bvid: str, request: Request, page: int = 0, quality: int = 1, redirect: int = 0):
     """Proxy the video track for a bilibili video."""
     try:
-        urls = await get_stream_urls(bvid, page)
+        urls = await get_stream_urls(bvid, page, quality)
     except Exception as e:
         raise HTTPException(500, str(e))
     if not urls.get("video_url"):
         raise HTTPException(404, "No video stream found")
+    if redirect:
+        return RedirectResponse(urls["video_url"], status_code=302)
     return await _proxy_stream(urls["video_url"], request)
 
 
 @router.get("/api/stream/audio/{bvid}")
-async def stream_audio(bvid: str, request: Request, page: int = 0, redirect: int = 0):
+async def stream_audio(bvid: str, request: Request, page: int = 0, quality: int = 1, redirect: int = 0):
     """Proxy or redirect the audio track for a bilibili video.
 
     redirect=1: issues a 302 to the CDN URL directly — faster for capable players
@@ -84,7 +86,7 @@ async def stream_audio(bvid: str, request: Request, page: int = 0, redirect: int
     redirect=0 (default): proxy through this server (needed for browser CORS).
     """
     try:
-        urls = await get_stream_urls(bvid, page)
+        urls = await get_stream_urls(bvid, page, quality)
     except Exception as e:
         raise HTTPException(500, str(e))
     if not urls.get("audio_url"):

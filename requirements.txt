@@ -1,8 +1,8 @@
-fastapi
-uvicorn[standard]
-bilibili-api-dev
-httpx
-python-multipart
-aiohttp
-chompjs
-curl_cffi
+fastapi==0.135.1
+uvicorn[standard]==0.42.0
+bilibili-api-python @ git+https://github.com/machsix/bilibili-api.git@dev
+httpx==0.28.1
+python-multipart==0.0.22
+aiohttp==3.13.3
+chompjs==1.4.0
+curl_cffi==0.14.0
