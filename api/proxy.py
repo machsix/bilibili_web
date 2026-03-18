@@ -5,11 +5,14 @@ Passes through Range headers so seeking works correctly.
 
 import asyncio
 import httpx
+import os
 from xml.sax.saxutils import escape
 from fastapi import APIRouter, Request, HTTPException, Query
 from fastapi.responses import StreamingResponse, Response, RedirectResponse
 
 from .video import get_stream_urls, get_stream_details
+
+_STREAM_CHUNK_SIZE = int(os.environ.get("STREAM_CHUNK_SIZE", 65536))  # bytes
 
 router = APIRouter()
 
@@ -55,7 +58,7 @@ async def _proxy_stream(cdn_url: str, request: Request, force_content_type: str 
 
     async def _stream():
         try:
-            async for chunk in upstream.aiter_bytes(chunk_size=65536):
+            async for chunk in upstream.aiter_bytes(chunk_size=_STREAM_CHUNK_SIZE):
                 yield chunk
         finally:
             await upstream.aclose()
