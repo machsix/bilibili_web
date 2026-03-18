@@ -11,6 +11,14 @@
   <link rel="shortcut icon" href="/static/icons/favicon.ico" />
   <link rel="stylesheet" href="https://fonts.googleapis.com/icon?family=Material+Icons" />
   <link rel="stylesheet" href="/static/style.css" />
+  <script src="https://unpkg.com/vconsole@latest/dist/vconsole.min.js"></script>
+  <script>
+    // VConsole will be exported to `window.VConsole` by default.
+    // if iphone, enable vConsole for debugging (can be toggled in the UI later)
+    if (/iPhone|iPad|iPod/i.test(navigator.userAgent)) {
+      var vConsole = new window.VConsole();
+    }
+  </script>
 </head>
 <body>
 

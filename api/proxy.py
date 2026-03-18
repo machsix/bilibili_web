@@ -26,7 +26,7 @@ BILIBILI_HEADERS = {
 PROXY_TIMEOUT = httpx.Timeout(30.0, connect=10.0)
 
 
-async def _proxy_stream(cdn_url: str, request: Request) -> StreamingResponse:
+async def _proxy_stream(cdn_url: str, request: Request, force_content_type: str | None = None) -> StreamingResponse:
     """Stream a CDN URL back to the client, forwarding Range headers."""
     headers = dict(BILIBILI_HEADERS)
     range_header = request.headers.get("range")
@@ -44,7 +44,7 @@ async def _proxy_stream(cdn_url: str, request: Request) -> StreamingResponse:
         raise HTTPException(502, f"Upstream request failed: {e}")
 
     response_headers = {
-        "Content-Type": upstream.headers.get("Content-Type", "application/octet-stream"),
+        "Content-Type": force_content_type or upstream.headers.get("Content-Type", "application/octet-stream"),
         "Accept-Ranges": "bytes",
     }
     for h in ("Content-Length", "Content-Range"):
@@ -94,7 +94,7 @@ async def stream_audio(bvid: str, request: Request, page: int = 0, quality: int 
         raise HTTPException(404, "No audio stream found")
     if redirect:
         return RedirectResponse(urls["audio_url"], status_code=302)
-    return await _proxy_stream(urls["audio_url"], request)
+    return await _proxy_stream(urls["audio_url"], request, force_content_type="audio/mp4")
 
 
 @router.get("/api/stream/merged/{bvid}")

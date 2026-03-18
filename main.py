@@ -112,8 +112,8 @@ async def m3u_playlist(request: Request, video: int = 1, redirect: int = 0,
 
     base = str(request.base_url).rstrip("/")
     if video:
-        stream_path = "merged"
-        suffix = ""
+        stream_path = "video"
+        suffix = "&quality=0&redirect=1"
     else:
         stream_path = "audio"
         suffix = "&redirect=1" if redirect else ""

@@ -36,6 +36,8 @@
   let currentIndex = -1;
   let audioOnly    = false;
   let art          = null;
+  const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent)
+    || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
 
   // ── LocalStorage persistence ───────────────────────────────────────────────
   const LS_URL      = 'bilibili-last-url';
@@ -120,6 +122,32 @@
       muted: !!art.muted,
       volume: Number(art.volume ?? 1),
     };
+  }
+
+  function resolveVideoSource(type, bvid, page) {
+    if (type === 'dash' && isIOS) {
+      // iOS Safari does not reliably support DASH via MSE/dash.js.
+      return {
+        url: `/api/stream/video/${bvid}?page=${page}&quality=0`,
+        playerType: 'auto',
+      };
+    }
+    if (type === 'dash') {
+      return {
+        url: `/api/stream/mpd/${bvid}.mpd?page=${page}`,
+        playerType: 'dash',
+      };
+    }
+    return {
+      url: `/api/stream/video/${bvid}?page=${page}`,
+      playerType: 'auto',
+    };
+  }
+
+  function resolveAudioSource(bvid, page) {
+    // Use lower complexity progressive stream on iOS for better compatibility.
+    if (isIOS) return `/api/stream/audio/${bvid}?page=${page}&quality=0`;
+    return `/api/stream/audio/${bvid}?page=${page}`;
   }
 
   async function createArtPlayer(url, type, state = {}) {
@@ -287,10 +315,8 @@
     }
     const { type } = await infoRes.json();
 
-    const videoUrl = type === 'dash'
-      ? `/api/stream/mpd/${bvid}.mpd?page=${page}`
-      : `/api/stream/video/${bvid}?page=${page}`;
-    const audioUrl = `/api/stream/audio/${bvid}?page=${page}`;
+    const source = resolveVideoSource(type, bvid, page);
+    const audioUrl = resolveAudioSource(bvid, page);
     const state = getVideoState();
 
     if (audioOnly) {
@@ -309,7 +335,7 @@
       audioPlayer.pause();
       audioPlayer.src = '';
 
-      await createArtPlayer(videoUrl, type, state);
+      await createArtPlayer(source.url, source.playerType, state);
     }
   }
 
@@ -406,7 +432,7 @@
     const item = playlist[currentIndex];
     const page = item.page ?? 0;
 
-    const audioUrl = `/api/stream/audio/${item.bvid}?page=${page}`;
+    const audioUrl = resolveAudioSource(item.bvid, page);
 
     if (audioOnly) {
       // Switch to audio-only
@@ -434,11 +460,9 @@
         throw new Error(err.detail || `HTTP ${infoRes.status}`);
       }
       const { type } = await infoRes.json();
-      const videoUrl = type === 'dash'
-        ? `/api/stream/mpd/${item.bvid}.mpd?page=${page}`
-        : `/api/stream/video/${item.bvid}?page=${page}`;
+      const source = resolveVideoSource(type, item.bvid, page);
 
-      await createArtPlayer(videoUrl, type, {
+      await createArtPlayer(source.url, source.playerType, {
         muted: wasMuted,
         volume,
         currentTime: audioTime,
