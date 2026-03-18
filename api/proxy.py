@@ -86,6 +86,7 @@ async def stream_audio(bvid: str, request: Request, page: int = 0, quality: int 
                 (e.g. Evermusic, VLC) that can handle CDN headers themselves.
     redirect=0 (default): proxy through this server (needed for browser CORS).
     """
+    quality = max(1, int(quality))
     try:
         urls = await get_stream_urls(bvid, page, quality)
     except Exception as e:

@@ -3,11 +3,12 @@ Video info retrieval and stream URL resolution.
 """
 
 import time
+import os
 from bilibili_api.video import Video, VideoDownloadURLDataDetecter, VideoQuality, AudioQuality
 
 # Cache resolved stream URLs for up to 1 h (Bilibili CDN URLs expire ~2 h).
 _stream_cache: dict[tuple[str, int, bool], tuple[float, dict]] = {}
-_STREAM_CACHE_TTL = 3600  # seconds
+_STREAM_CACHE_TTL = os.environ.get("STREAM_CACHE_TTL", 3600)
 
 
 async def _get_download_data(bvid: str, page: int = 0, quality: int = 2) -> dict:
@@ -19,7 +20,7 @@ async def _get_download_data(bvid: str, page: int = 0, quality: int = 2) -> dict
     if expire < now:
         v = Video(bvid=bvid)
         download_data = await v.get_download_url(page_index=page, html5=flv)
-        _stream_cache[cache_key] = (now + _STREAM_CACHE_TTL, download_data)
+        _stream_cache[cache_key] = (now + float(_STREAM_CACHE_TTL), download_data)
     return download_data
 
 

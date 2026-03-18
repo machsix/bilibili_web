@@ -122,7 +122,7 @@ async def m3u_playlist(request: Request, video: int = 1, redirect: int = -1,
         redirect = 1 if redirect == -1 else redirect
     else:
         stream_path = "audio"
-        suffix = f"&quality={int(quality)}"
+        suffix = f"&quality={max(int(quality),1)}"
         redirect = 0 if redirect == -1 else redirect
     suffix += "&redirect=1" if redirect else ""
 
