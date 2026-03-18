@@ -5,10 +5,11 @@ Passes through Range headers so seeking works correctly.
 
 import asyncio
 import httpx
+from xml.sax.saxutils import escape
 from fastapi import APIRouter, Request, HTTPException, Query
 from fastapi.responses import StreamingResponse, Response, RedirectResponse
 
-from .video import get_stream_urls
+from .video import get_stream_urls, get_stream_details
 
 router = APIRouter()
 
@@ -168,6 +169,69 @@ async def stream_info(bvid: str, page: int = 0):
     except Exception as e:
         raise HTTPException(500, str(e))
     return {"type": urls["type"]}
+
+
+@router.get("/api/stream/mpd/{bvid}.mpd")
+async def stream_mpd(bvid: str, request: Request, page: int = 0, quality: int = 2):
+        """Generate a DASH MPD for Artplayer/dash.js using proxied A/V URLs."""
+        try:
+                details = await get_stream_details(bvid, page, quality)
+        except Exception as e:
+                raise HTTPException(500, str(e))
+
+        if details.get("type") != "dash":
+                raise HTTPException(409, "Current stream is not DASH")
+
+        video_rep = details.get("video_rep") or {}
+        audio_rep = details.get("audio_rep") or {}
+        video_seg = video_rep.get("SegmentBase") or video_rep.get("segment_base") or {}
+        audio_seg = audio_rep.get("SegmentBase") or audio_rep.get("segment_base") or {}
+
+        video_base_url = f"/api/stream/video/{bvid}?page={page}&quality={quality}"
+        audio_base_url = f"/api/stream/audio/{bvid}?page={page}&quality={quality}"
+
+        duration_seconds = max(1.0, float(details.get("timelength") or 0) / 1000.0)
+
+        video_mime = escape(video_rep.get("mimeType") or video_rep.get("mime_type") or "video/mp4")
+        video_codecs = escape(video_rep.get("codecs") or "avc1.640028")
+        video_bandwidth = int(video_rep.get("bandwidth") or 3000000)
+        video_width = int(video_rep.get("width") or 1920)
+        video_height = int(video_rep.get("height") or 1080)
+        video_framerate = escape(str(video_rep.get("frameRate") or video_rep.get("frame_rate") or "30"))
+        video_init = escape(video_seg.get("Initialization") or video_seg.get("initialization") or "0-1000")
+        video_index = escape(video_seg.get("indexRange") or video_seg.get("index_range") or "1001-2000")
+
+        audio_mime = escape(audio_rep.get("mimeType") or audio_rep.get("mime_type") or "audio/mp4")
+        audio_codecs = escape(audio_rep.get("codecs") or "mp4a.40.2")
+        audio_bandwidth = int(audio_rep.get("bandwidth") or 192000)
+        audio_samplerate = escape(str(audio_rep.get("sampleRate") or audio_rep.get("sample_rate") or "48000"))
+        audio_init = escape(audio_seg.get("Initialization") or audio_seg.get("initialization") or "0-1000")
+        audio_index = escape(audio_seg.get("indexRange") or audio_seg.get("index_range") or "1001-2000")
+
+        mpd = f"""<?xml version=\"1.0\" encoding=\"UTF-8\"?>
+<MPD xmlns=\"urn:mpeg:dash:schema:mpd:2011\" type=\"static\" profiles=\"urn:mpeg:dash:profile:isoff-on-demand:2011\" minBufferTime=\"PT1.5S\" mediaPresentationDuration=\"PT{duration_seconds:.3f}S\">
+    <Period id=\"0\" start=\"PT0S\">
+        <AdaptationSet id=\"1\" contentType=\"video\" segmentAlignment=\"true\" startWithSAP=\"1\">
+            <Representation id=\"video_{video_height}\" mimeType=\"{video_mime}\" codecs=\"{video_codecs}\" bandwidth=\"{video_bandwidth}\" width=\"{video_width}\" height=\"{video_height}\" frameRate=\"{video_framerate}\">
+                <BaseURL>{escape(video_base_url)}</BaseURL>
+                <SegmentBase indexRange=\"{video_index}\">
+                    <Initialization range=\"{video_init}\" />
+                </SegmentBase>
+            </Representation>
+        </AdaptationSet>
+        <AdaptationSet id=\"2\" contentType=\"audio\" segmentAlignment=\"true\" startWithSAP=\"1\">
+            <Representation id=\"audio_main\" mimeType=\"{audio_mime}\" codecs=\"{audio_codecs}\" bandwidth=\"{audio_bandwidth}\" audioSamplingRate=\"{audio_samplerate}\">
+                <BaseURL>{escape(audio_base_url)}</BaseURL>
+                <SegmentBase indexRange=\"{audio_index}\">
+                    <Initialization range=\"{audio_init}\" />
+                </SegmentBase>
+            </Representation>
+        </AdaptationSet>
+    </Period>
+</MPD>
+"""
+
+        return Response(content=mpd, media_type="application/dash+xml")
 
 
 @router.get("/api/thumb")

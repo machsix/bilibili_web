@@ -59,13 +59,7 @@
 
       <!-- Video / cover display -->
       <div class="media-container" id="media-container">
-        <video
-          id="video-player"
-          controls
-          preload="auto"
-          crossorigin="anonymous"
-          playsinline
-        ></video>
+        <div id="artplayer"></div>
         <audio id="audio-player" controls preload="auto"></audio>
         <div class="cover-overlay" id="cover-overlay">
           <img id="cover-img" src="" alt="cover" />
@@ -95,6 +89,8 @@
     </section>
   </main>
 
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/dashjs/4.5.2/dash.all.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/artplayer/5.3.0/artplayer.min.js"></script>
   <script src="/static/player.js"></script>
 </body>
 </html>

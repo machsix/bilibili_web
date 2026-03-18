@@ -19,7 +19,7 @@
   const dlLink           = document.getElementById('dl-link');
   const playlistEl       = document.getElementById('playlist');
   const countEl          = document.getElementById('playlist-count');
-  const videoPlayer      = document.getElementById('video-player');
+  const artContainer     = document.getElementById('artplayer');
   const audioPlayer      = document.getElementById('audio-player');
   const coverOverlay     = document.getElementById('cover-overlay');
   const coverImg         = document.getElementById('cover-img');
@@ -35,6 +35,7 @@
   let playlist     = [];   // [{bvid, title, cover, duration, page}, ...]
   let currentIndex = -1;
   let audioOnly    = false;
+  let art          = null;
 
   // ── LocalStorage persistence ───────────────────────────────────────────────
   const LS_URL      = 'bilibili-last-url';
@@ -96,6 +97,71 @@
   function thumbUrl(url) {
     if (!url) return '';
     return `/api/thumb?url=${encodeURIComponent(url)}`;
+  }
+
+  function destroyArt() {
+    if (!art) return;
+    try {
+      if (art.dash) art.dash.reset();
+      art.destroy(false);
+    } catch {
+      // ignore cleanup errors
+    }
+    art = null;
+    artContainer.innerHTML = '';
+  }
+
+  function getVideoState() {
+    if (!art) {
+      return { currentTime: 0, muted: false, volume: 1 };
+    }
+    return {
+      currentTime: Number(art.currentTime || 0),
+      muted: !!art.muted,
+      volume: Number(art.volume ?? 1),
+    };
+  }
+
+  async function createArtPlayer(url, type, state = {}) {
+    destroyArt();
+    showSpinner(true);
+
+    art = new Artplayer({
+      container: artContainer,
+      url,
+      type: type === 'dash' ? 'mpd' : 'auto',
+      autoplay: true,
+      autoPlayback: false,
+      pip: true,
+      fullscreen: true,
+      fullscreenWeb: true,
+      playbackRate: true,
+      setting: true,
+      muted: !!state.muted,
+      volume: Number(state.volume ?? 1),
+      customType: {
+        mpd: (video, sourceUrl, artInstance) => {
+          const player = dashjs.MediaPlayer().create();
+          player.initialize(video, sourceUrl, true);
+          artInstance.dash = player;
+          artInstance.on('destroy', () => player.reset());
+        },
+      },
+    });
+
+    art.on('video:waiting', () => showSpinner(true));
+    art.on('video:canplay', () => showSpinner(false));
+    art.on('video:ended', onVideoEnded);
+
+    await new Promise((resolve) => {
+      art.on('ready', () => {
+        const startAt = Number(state.currentTime || 0);
+        if (startAt > 0) art.currentTime = startAt;
+        art.play().catch(() => {});
+        showSpinner(false);
+        resolve();
+      });
+    });
   }
 
   // ── Playlist rendering ────────────────────────────────────────────────────
@@ -221,107 +287,42 @@
     }
     const { type } = await infoRes.json();
 
-    const videoUrl = `/api/stream/video/${bvid}?page=${page}`;
+    const videoUrl = type === 'dash'
+      ? `/api/stream/mpd/${bvid}.mpd?page=${page}`
+      : `/api/stream/video/${bvid}?page=${page}`;
     const audioUrl = `/api/stream/audio/${bvid}?page=${page}`;
+    const state = getVideoState();
 
     if (audioOnly) {
       // Audio-only mode
       stopVideo();
       audioPlayer.src = audioUrl;
       audioPlayer.load();
+      audioPlayer.muted = !!state.muted;
+      audioPlayer.volume = Number(state.volume ?? 1);
       showCoverOverlay(true);
       showSpinner(false);
       await audioPlayer.play().catch(() => {});
     } else {
       // Video+audio mode
       hideCoverOverlay();
+      audioPlayer.pause();
       audioPlayer.src = '';
 
-      if (type === 'dash') {
-        // For DASH we serve separate streams — use a combined source trick:
-        // We proxy video via /api/stream/video which contains the video track,
-        // and audio via /api/stream/audio which contains the audio track.
-        // Modern browsers can't combine two streams natively, so we serve the
-        // best single stream as the video src (the DASH video track contains
-        // no audio; use audio proxy as a hidden audio element synced to video).
-        videoPlayer.src = videoUrl;
-        videoPlayer.load();
-
-        // Use a second hidden audio element synced to video for DASH audio
-        syncAudioToVideo(audioUrl);
-      } else {
-        // MP4/FLV — single file with video+audio
-        videoPlayer.src = videoUrl;
-        videoPlayer.load();
-        stopSyncAudio();
-      }
-
-      showSpinner(false);
-      await videoPlayer.play().catch(() => {});
-    }
-  }
-
-  // ── DASH audio sync ───────────────────────────────────────────────────────
-  // Because browsers can't MSE-merge two proxy streams easily, we play the
-  // DASH audio track in a hidden <audio> element synced to the video element.
-  let syncAudio = null;
-
-  function stopSyncAudio() {
-    if (syncAudio) {
-      syncAudio.pause();
-      syncAudio.src = '';
-      syncAudio.remove();
-      syncAudio = null;
-    }
-  }
-
-  function syncAudioToVideo(audioUrl) {
-    stopSyncAudio();
-    syncAudio = document.createElement('audio');
-    syncAudio.src = audioUrl;
-    syncAudio.preload = 'auto';
-    syncAudio.style.display = 'none';
-    document.body.appendChild(syncAudio);
-
-    videoPlayer.addEventListener('play',  onVideoPlay,  { signal: syncAudioAbortController.signal });
-    videoPlayer.addEventListener('pause', onVideoPause, { signal: syncAudioAbortController.signal });
-    videoPlayer.addEventListener('seeked', onVideoSeeked, { signal: syncAudioAbortController.signal });
-    videoPlayer.addEventListener('ended', onVideoEnded, { signal: syncAudioAbortController.signal });
-
-    // Kickoff
-    syncAudio.currentTime = videoPlayer.currentTime;
-    if (!videoPlayer.paused) syncAudio.play().catch(() => {});
-  }
-
-  let syncAudioAbortController = new AbortController();
-
-  function resetSyncController() {
-    syncAudioAbortController.abort();
-    syncAudioAbortController = new AbortController();
-  }
-
-  function onVideoPlay()  { syncAudio?.play().catch(() => {}); }
-  function onVideoPause() { syncAudio?.pause(); }
-  function onVideoSeeked() {
-    if (syncAudio) {
-      syncAudio.currentTime = videoPlayer.currentTime;
-      if (!videoPlayer.paused) syncAudio.play().catch(() => {});
+      await createArtPlayer(videoUrl, type, state);
     }
   }
 
   // ── Cover overlay ─────────────────────────────────────────────────────────
   function showCoverOverlay(show) {
     coverOverlay.style.display = show ? 'flex' : 'none';
-    videoPlayer.style.display  = show ? 'none' : 'block';
+    artContainer.style.display = show ? 'none' : 'block';
     audioPlayer.style.display  = show ? 'block' : 'none';
   }
   function hideCoverOverlay() { showCoverOverlay(false); }
 
   function stopVideo() {
-    resetSyncController();
-    stopSyncAudio();
-    videoPlayer.pause();
-    videoPlayer.src = '';
+    destroyArt();
   }
 
   // ── Auto-advance ──────────────────────────────────────────────────────────
@@ -337,11 +338,7 @@
     }
   }
 
-  videoPlayer.addEventListener('ended', onVideoEnded);
   audioPlayer.addEventListener('ended', onAudioEnded);
-
-  videoPlayer.addEventListener('waiting', () => showSpinner(true));
-  videoPlayer.addEventListener('canplay', () => showSpinner(false));
   audioPlayer.addEventListener('waiting', () => showSpinner(true));
   audioPlayer.addEventListener('canplay', () => showSpinner(false));
 
@@ -410,20 +407,17 @@
     const page = item.page ?? 0;
 
     const audioUrl = `/api/stream/audio/${item.bvid}?page=${page}`;
-    const videoUrl = `/api/stream/video/${item.bvid}?page=${page}`;
 
     if (audioOnly) {
       // Switch to audio-only
-      const videoTime = videoPlayer.currentTime;
-      const wasMuted = videoPlayer.muted;
-      const volume = videoPlayer.volume;
+      const state = getVideoState();
       stopVideo();
       showCoverOverlay(true);
       audioPlayer.src = audioUrl;
       audioPlayer.load();
-      audioPlayer.muted = wasMuted;
-      audioPlayer.volume = volume;
-      audioPlayer.currentTime = videoTime;
+      audioPlayer.muted = !!state.muted;
+      audioPlayer.volume = Number(state.volume ?? 1);
+      audioPlayer.currentTime = Number(state.currentTime || 0);
       await audioPlayer.play().catch(() => {});
     } else {
       // Switch back to video
@@ -440,21 +434,15 @@
         throw new Error(err.detail || `HTTP ${infoRes.status}`);
       }
       const { type } = await infoRes.json();
+      const videoUrl = type === 'dash'
+        ? `/api/stream/mpd/${item.bvid}.mpd?page=${page}`
+        : `/api/stream/video/${item.bvid}?page=${page}`;
 
-      resetSyncController();
-      videoPlayer.src = videoUrl;
-      videoPlayer.load();
-      videoPlayer.muted = wasMuted;
-      videoPlayer.volume = volume;
-      videoPlayer.currentTime = audioTime;
-
-      if (type === 'dash') {
-        syncAudioToVideo(audioUrl);
-      } else {
-        stopSyncAudio();
-      }
-
-      await videoPlayer.play().catch(() => {});
+      await createArtPlayer(videoUrl, type, {
+        muted: wasMuted,
+        volume,
+        currentTime: audioTime,
+      });
     }
   });
 

@@ -10,6 +10,41 @@ _stream_cache: dict[tuple[str, int], tuple[float, dict]] = {}
 _STREAM_CACHE_TTL = 3600  # seconds
 
 
+async def _get_download_data(bvid: str, page: int = 0, quality: int = 2) -> dict:
+    """Fetch and cache raw download metadata from Bilibili."""
+    cache_key = (bvid, page)
+    now = time.monotonic()
+    expire, download_data = _stream_cache.get(cache_key, (0, {}))
+    if expire < now:
+        v = Video(bvid=bvid)
+        download_data = await v.get_download_url(page_index=page, html5=(quality == 0))
+        _stream_cache[cache_key] = (now + _STREAM_CACHE_TTL, download_data)
+    return download_data
+
+
+def _candidate_urls(rep: dict) -> list[str]:
+    """Return all possible URL fields that may appear in a DASH representation."""
+    urls = []
+    for key in ("baseUrl", "base_url"):
+        value = rep.get(key)
+        if value:
+            urls.append(value)
+    for key in ("backupUrl", "backup_url"):
+        values = rep.get(key) or []
+        urls.extend(v for v in values if v)
+    return urls
+
+
+def _find_dash_rep(reps: list[dict], selected_url: str | None) -> dict | None:
+    """Find the DASH representation dict that matches a selected stream URL."""
+    if not selected_url:
+        return None
+    for rep in reps:
+        if selected_url in _candidate_urls(rep):
+            return rep
+    return None
+
+
 async def get_video_info(bvid: str, page: int = 0) -> dict:
     """Return title, cover, owner, duration, pages list for a video."""
     v = Video(bvid=bvid)
@@ -40,13 +75,7 @@ async def get_stream_urls(bvid: str, page: int = 0, quality: int = 2) -> dict:
     Results are cached for _STREAM_CACHE_TTL seconds to avoid redundant API calls
     (Bilibili CDN URLs are valid for ~2 h).
     """
-    cache_key = (bvid, page)
-    now = time.monotonic()
-    expire, download_data = _stream_cache.get(cache_key, (0, {}))
-    if expire < now:
-        v = Video(bvid=bvid)
-        download_data = await v.get_download_url(page_index=page, html5=(quality == 0))
-        _stream_cache[cache_key] = (now + _STREAM_CACHE_TTL, download_data)
+    download_data = await _get_download_data(bvid, page, quality)
 
     detector = VideoDownloadURLDataDetecter(data=download_data)
 
@@ -93,3 +122,27 @@ async def get_stream_urls(bvid: str, page: int = 0, quality: int = 2) -> dict:
             }
 
     raise RuntimeError(f"Could not resolve stream URLs for {bvid} page {page}")
+
+
+async def get_stream_details(bvid: str, page: int = 0, quality: int = 2) -> dict:
+    """Return selected stream URLs plus DASH representation metadata when available."""
+    download_data = await _get_download_data(bvid, page, quality)
+    urls = await get_stream_urls(bvid, page, quality)
+
+    details = {
+        "type": urls.get("type"),
+        "video_url": urls.get("video_url"),
+        "audio_url": urls.get("audio_url"),
+        "timelength": int(download_data.get("timelength") or 0),
+        "video_rep": None,
+        "audio_rep": None,
+    }
+
+    dash = download_data.get("dash") or {}
+    if urls.get("type") == "dash":
+        video_reps = dash.get("video") or []
+        audio_reps = dash.get("audio") or []
+        details["video_rep"] = _find_dash_rep(video_reps, urls.get("video_url"))
+        details["audio_rep"] = _find_dash_rep(audio_reps, urls.get("audio_url"))
+
+    return details
