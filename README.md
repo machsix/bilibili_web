@@ -64,6 +64,17 @@ Open the web player with a playlist pre-loaded:
 /play?bvid=BV15EArzAEoE          # single video
 ```
 
+## Music Mode (`/music`)
+
+Open a mobile-first pure music player (audio-only UI) with the same arguments as `/play`:
+
+```
+/music?uid=94286793&sid=7005584    # collection or series
+/music?fid=3928871687              # favorite list
+/music?bvid=BV15EArzAEoE           # single video
+/music                              # open music UI directly
+```
+
 ## M3U Endpoint
 
 Generate a playlist file for external players. The downloaded file includes a comment with the source URL for easy re-downloading.

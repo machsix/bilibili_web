@@ -38,7 +38,7 @@ async def cache_control_middleware(request: Request, call_next):
     response = await call_next(request)
     if request.url.path.startswith("/static/"):
         response.headers["Cache-Control"] = "public, max-age=31536000, immutable"
-    elif request.url.path == "/":
+    elif request.url.path in {"/", "/music"}:
         response.headers["Cache-Control"] = "no-cache"
     return response
 
@@ -166,15 +166,28 @@ async def play(uid: Optional[int] = None, sid: Optional[int] = None, fid: Option
     return RedirectResponse(f"/?autoload={quote(url)}", status_code=302)
 
 
+@app.get("/music")
+async def music(uid: Optional[int] = None, sid: Optional[int] = None, fid: Optional[int] = None, bvid: Optional[str] = None):
+    """Open the mobile-first music player with a playlist pre-loaded.
+
+    /music?uid=94286793&sid=7005584   — season or series
+    /music?fid=3928871687             — favorite list
+    /music?bvid=BV15EArzAEoE          — single video
+    /music                             — open music player directly
+    """
+    if (uid is not None and sid is None) or (uid is None and sid is not None):
+        raise HTTPException(400, "Provide bvid, fid, both uid and sid, or no parameters")
+    return _render_versioned_static_html("music.html")
+
+
 # ── Static files (must come last) ─────────────────────────────────────────────
 app.mount("/static", StaticFiles(directory="static"), name="static")
 
 
-@app.get("/")
-async def index():
+def _render_versioned_static_html(filename: str) -> HTMLResponse:
     static_root = Path("static")
-    index_path = static_root / "index.html"
-    html = index_path.read_text(encoding="utf-8")
+    html_path = static_root / filename
+    html = html_path.read_text(encoding="utf-8")
 
     def versioned_static_url(relative_path: str) -> str:
         asset_path = static_root / relative_path
@@ -194,3 +207,8 @@ async def index():
     html = static_url_pattern.sub(rewrite_static_url, html)
 
     return HTMLResponse(html)
+
+
+@app.get("/")
+async def index():
+    return _render_versioned_static_html("index.html")

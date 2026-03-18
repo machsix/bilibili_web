@@ -1,0 +1,105 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Bilibili Music Player</title>
+  <link rel="apple-touch-icon" sizes="180x180" href="/static/icons/apple-touch-icon.png" />
+  <link rel="icon" type="image/png" sizes="32x32" href="/static/icons/favicon-32x32.png" />
+  <link rel="icon" type="image/png" sizes="16x16" href="/static/icons/favicon-16x16.png" />
+  <link rel="manifest" href="/static/icons/site.webmanifest" />
+  <link rel="shortcut icon" href="/static/icons/favicon.ico" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700&family=Space+Grotesk:wght@500;700&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="https://fonts.googleapis.com/icon?family=Material+Icons" />
+  <link rel="stylesheet" href="/static/music.css" />
+  <script>
+    // Enable vConsole only when explicitly requested with debug=1.
+    (function () {
+      var params = new URLSearchParams(window.location.search);
+      if (params.get('debug') !== '1') return;
+
+      var script = document.createElement('script');
+      script.src = 'https://unpkg.com/vconsole@latest/dist/vconsole.min.js';
+      script.onload = function () {
+        try {
+          new window.VConsole();
+        } catch {
+          // Ignore debug console setup failures.
+        }
+      };
+      document.head.appendChild(script);
+    })();
+  </script>
+</head>
+<body>
+  <div class="app-shell">
+    <header class="music-header">
+      <h1 class="brand">Bilibili Music</h1>
+      <p class="tagline">Pure audio player</p>
+    </header>
+
+    <section class="url-card">
+      <input
+        id="playlist-url"
+        type="text"
+        placeholder="Paste a Bilibili playlist, collection, or video URL"
+        autocomplete="off"
+      />
+      <div class="url-actions">
+        <button id="load-btn" class="btn btn-primary">Load</button>
+        <button id="clear-btn" class="btn btn-ghost">Clear</button>
+      </div>
+    </section>
+
+    <section class="queue-card">
+      <div class="queue-head">
+        <h3>Queue</h3>
+        <span id="playlist-count">0 tracks</span>
+      </div>
+      <div class="playlist-table-wrap">
+        <table class="playlist-table" aria-label="Playlist">
+          <thead>
+            <tr>
+              <th class="col-index">#</th>
+              <th class="col-title">Title</th>
+              <th class="col-duration">Duration</th>
+            </tr>
+          </thead>
+          <tbody id="playlist"></tbody>
+        </table>
+      </div>
+    </section>
+
+    <div class="error-banner hidden" id="error-banner"></div>
+  </div>
+
+  <section class="bottom-player" role="region" aria-label="Now playing">
+    <div class="player-left">
+      <img id="cover-img" src="" alt="cover" />
+      <div class="track-meta">
+        <h2 id="track-title">No track loaded</h2>
+        <p id="track-subtitle">Paste a playlist URL to begin</p>
+      </div>
+    </div>
+
+    <div class="player-right">
+      <div class="control-row">
+        <button id="prev-btn" class="icon-btn" title="Previous">
+          <span class="material-icons">skip_previous</span>
+        </button>
+        <button id="play-toggle-btn" class="icon-btn play" title="Play or pause">
+          <span id="play-toggle-icon" class="material-icons">play_arrow</span>
+        </button>
+        <button id="next-btn" class="icon-btn" title="Next">
+          <span class="material-icons">skip_next</span>
+        </button>
+      </div>
+      <audio id="audio-player" preload="auto" controls></audio>
+    </div>
+  </section>
+
+  <script src="/static/music.js"></script>
+</body>
+</html>
