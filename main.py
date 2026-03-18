@@ -12,12 +12,15 @@ request_settings.set("impersonate", "chrome131")
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
-from fastapi.responses import FileResponse, PlainTextResponse, RedirectResponse
+from fastapi.responses import FileResponse, HTMLResponse, PlainTextResponse, RedirectResponse
 from pydantic import BaseModel
 
 from api.playlist import get_playlist, _fetch_season, _fetch_series, _fetch_favorite
 from api.video import get_video_info
 from api.proxy import router as proxy_router
+
+from pathlib import Path
+import re
 
 app = FastAPI(title="Bilibili Proxy Player")
 
@@ -27,6 +30,16 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+
+@app.middleware("http")
+async def cache_control_middleware(request: Request, call_next):
+    response = await call_next(request)
+    if request.url.path.startswith("/static/"):
+        response.headers["Cache-Control"] = "public, max-age=31536000, immutable"
+    elif request.url.path == "/":
+        response.headers["Cache-Control"] = "no-cache"
+    return response
 
 # ── Streaming proxy routes ─────────────────────────────────────────────────────
 app.include_router(proxy_router)
@@ -148,4 +161,25 @@ app.mount("/static", StaticFiles(directory="static"), name="static")
 
 @app.get("/")
 async def index():
-    return FileResponse("static/index.html")
+    static_root = Path("static")
+    index_path = static_root / "index.html"
+    html = index_path.read_text(encoding="utf-8")
+
+    def versioned_static_url(relative_path: str) -> str:
+        asset_path = static_root / relative_path
+        try:
+            version = int(asset_path.stat().st_mtime)
+        except FileNotFoundError:
+            return f"/static/{relative_path}"
+        return f"/static/{relative_path}?v={version}"
+
+    static_url_pattern = re.compile(r'(/static/[^"\'\s?]+)(?:\?v=\d+)?')
+
+    def rewrite_static_url(match: re.Match) -> str:
+        static_url = match.group(1)
+        relative_path = static_url.removeprefix("/static/")
+        return versioned_static_url(relative_path)
+
+    html = static_url_pattern.sub(rewrite_static_url, html)
+
+    return HTMLResponse(html)
