@@ -73,7 +73,8 @@ async def api_video_info(bvid: str, page: int = 0):
 
 # ── M3U playlist API ───────────────────────────────────────────────────────────
 @app.get("/m3u")
-async def m3u_playlist(request: Request, video: int = 1, redirect: int = 0,
+async def m3u_playlist(request: Request, video: int = 1, redirect: int = -1,
+                       quality: int = 1,
                        url: str = None,
                        uid: int = None, sid: int = None, fid: int = None):
     """Generate an M3U playlist for an external player (e.g. mpv, VLC).
@@ -85,8 +86,11 @@ async def m3u_playlist(request: Request, video: int = 1, redirect: int = 0,
     sid      : Season or series ID
     fid      : Favorite list ID (media_id) — alternative to uid+sid
     video    : 1 (default) → merged video+audio; 0 → audio-only
-    redirect : 1 → stream URLs are CDN redirects (faster, recommended for
-               mobile apps like Evermusic); 0 → proxy through this server
+    redirect : 1 → whether to redirect to the CDN
+    The following only applies to audio stream, i.e. video=0
+    quality  : 0 → lowest quality (flv if video=1, 64Kbps if video=0)
+               1 → medium quality (1080P if video=1, 132Kbps if video=0)
+               2 (default) → highest quality available (up to 4K for video, 192Kbps for audio)
     """
     if url:
         try:
@@ -112,11 +116,15 @@ async def m3u_playlist(request: Request, video: int = 1, redirect: int = 0,
 
     base = str(request.base_url).rstrip("/")
     if video:
+        # use low quality flv stream from bilibili directly
         stream_path = "video"
-        suffix = "&quality=0&redirect=1"
+        suffix = "&quality=0"
+        redirect = 1 if redirect == -1 else redirect
     else:
         stream_path = "audio"
-        suffix = "&redirect=1" if redirect else ""
+        suffix = f"&quality={int(quality)}"
+        redirect = 0 if redirect == -1 else redirect
+    suffix += "&redirect=1" if redirect else ""
 
     lines = ["#EXTM3U", f"# Source: {request.url}"]
     for item in items:

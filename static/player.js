@@ -145,7 +145,7 @@
     if (type === 'dash' && isIOS) {
       // iOS Safari does not reliably support DASH via MSE/dash.js.
       return {
-        url: `/api/stream/video/${bvid}?page=${page}&quality=0`,
+        url: `/api/stream/video/${bvid}?page=${page}&quality=0&redirect=1`,
         playerType: 'auto',
       };
     }
@@ -412,7 +412,7 @@
     if (!url) return;
     const params = new URLSearchParams({ url });
     if (dlAudioOnly.checked) params.set('video', '0');
-    if (dlRedirect.checked)  params.set('redirect', '1');
+    // if (dlRedirect.checked)  params.set('redirect', '1');
     dlLink.href = `/m3u?${params}`;
   }
 
