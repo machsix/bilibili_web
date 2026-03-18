@@ -20,7 +20,8 @@ async def _get_download_data(bvid: str, page: int = 0, quality: int = 2) -> dict
     if expire < now:
         v = Video(bvid=bvid)
         download_data = await v.get_download_url(page_index=page, html5=flv)
-        _stream_cache[cache_key] = (now + float(_STREAM_CACHE_TTL), download_data)
+        if not flv:
+            _stream_cache[cache_key] = (now + float(_STREAM_CACHE_TTL), download_data)
     return download_data
 
 
