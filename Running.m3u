@@ -1,0 +1,34 @@
+#EXTM3U
+# Source: http://bilibili.machx.net/m3u?redirect=1&video=0&fid=3928871687&redirect=0&quality=1
+#EXTINF:4352,【160/170/180步频】【2018年的歌】18年都有梦核的感觉了么 - 【160步频】【2018年的歌】 (P1)
+http://bilibili.machx.net/api/stream/audio/BV1Fj6qBBEXm?page=0&quality=1
+#EXTINF:4010,【160/170/180步频】【2018年的歌】18年都有梦核的感觉了么 - 【170步频】【2018年的歌】 (P2)
+http://bilibili.machx.net/api/stream/audio/BV1Fj6qBBEXm?page=1&quality=1
+#EXTINF:3788,【160/170/180步频】【2018年的歌】18年都有梦核的感觉了么 - 【180步频】【2018年的歌】（速度有点快） (P3)
+http://bilibili.machx.net/api/stream/audio/BV1Fj6qBBEXm?page=2&quality=1
+#EXTINF:4352,【160/170/180步频】【2018年的歌】18年都有梦核的感觉了么 - 【160步频】纯音乐，无节拍器 (P4)
+http://bilibili.machx.net/api/stream/audio/BV1Fj6qBBEXm?page=3&quality=1
+#EXTINF:5084,【180步频】【佐藤早也伽】我只是想发挥出自己最好的成绩【唤醒希望的音乐】 - 【180步频】【佐藤早也伽】 (P1)
+http://bilibili.machx.net/api/stream/audio/BV1GYwtzHEA6?page=0&quality=1
+#EXTINF:5084,【180步频】【佐藤早也伽】我只是想发挥出自己最好的成绩【唤醒希望的音乐】 - 【佐藤早也伽】纯音乐，无节拍器 (P2)
+http://bilibili.machx.net/api/stream/audio/BV1GYwtzHEA6?page=1&quality=1
+#EXTINF:4496,170 #85｜高燃电音｜全网步频最全 效果最好的 跑步音乐｜柒零夜跑
+http://bilibili.machx.net/api/stream/audio/BV1xX4y1a7gN?page=0&quality=1
+#EXTINF:4084,170 #60｜全网步频最全 效果最好的 跑步音乐｜柒零夜跑
+http://bilibili.machx.net/api/stream/audio/BV1aN41117qS?page=0&quality=1
+#EXTINF:3844,170BPM步频音乐 | 精准卡点 | 进击的巨人 | 士兵们，战斗吧！ - 170 BPM | 进击的巨人 | 节拍器 (P1)
+http://bilibili.machx.net/api/stream/audio/BV1fAhZzsEUq?page=0&quality=1
+#EXTINF:3846,170BPM步频音乐 | 精准卡点 | 进击的巨人 | 士兵们，战斗吧！ - 170 BPM | 进击的巨人 | 无节拍器 (P2)
+http://bilibili.machx.net/api/stream/audio/BV1fAhZzsEUq?page=1&quality=1
+#EXTINF:4039,170 #59｜强风吹拂｜全网步频最全 效果最好的 跑步音乐｜柒零夜跑
+http://bilibili.machx.net/api/stream/audio/BV1DV4y1m76H?page=0&quality=1
+#EXTINF:2285,【跑步音乐】170步频 【リセット-强风吹拂】 35分钟训练纯享
+http://bilibili.machx.net/api/stream/audio/BV1kwJHzFEX7?page=0&quality=1
+#EXTINF:3781,【180步频】【大迫杰】一天 24 小时太短，我根本没空浪费在无关的人和事上【适合独处运动的轻音乐】 - 【180步频】【大迫杰】 (P1)
+http://bilibili.machx.net/api/stream/audio/BV1XJAzzXEsJ?page=0&quality=1
+#EXTINF:3781,【180步频】【大迫杰】一天 24 小时太短，我根本没空浪费在无关的人和事上【适合独处运动的轻音乐】 - 【180步频】无节拍器，纯音乐 (P2)
+http://bilibili.machx.net/api/stream/audio/BV1XJAzzXEsJ?page=1&quality=1
+#EXTINF:2948,【180步频】【平林清澄&黒田朝日】风过平林，步履清澄，日本学生記録【精准卡点】
+http://bilibili.machx.net/api/stream/audio/BV1MYArzXEHv?page=0&quality=1
+#EXTINF:682,大迫杰——奔跑在集体主义荒原上的孤狼（下）
+http://bilibili.machx.net/api/stream/audio/BV1XtigB6ENB?page=0&quality=1

@@ -4,6 +4,8 @@ Passes through Range headers so seeking works correctly.
 """
 
 import asyncio
+import base64
+import binascii
 import httpx
 import os
 from xml.sax.saxutils import escape
@@ -59,7 +61,8 @@ async def _proxy_stream(cdn_url: str, request: Request, force_content_type: str 
     async def _stream():
         try:
             async for chunk in upstream.aiter_bytes(chunk_size=_STREAM_CHUNK_SIZE):
-                yield chunk
+                if chunk:
+                    yield chunk
         finally:
             await upstream.aclose()
             await client.aclose()
@@ -81,6 +84,18 @@ async def stream_video(bvid: str, request: Request, page: int = 0, quality: int 
     return await _proxy_stream(urls["video_url"], request)
 
 
+@router.get("/api/stream/video/{bvid}/{page}")
+async def stream_video_with_page(
+    bvid: str,
+    page: int,
+    request: Request,
+    quality: int = 1,
+    redirect: int = 0,
+):
+    """Proxy the video track, taking page from the URL path."""
+    return await stream_video(bvid=bvid, request=request, page=page, quality=quality, redirect=redirect)
+
+
 @router.get("/api/stream/audio/{bvid}")
 async def stream_audio(bvid: str, request: Request, page: int = 0, quality: int = 1, redirect: int = 0):
     """Proxy or redirect the audio track for a bilibili video.
@@ -99,6 +114,18 @@ async def stream_audio(bvid: str, request: Request, page: int = 0, quality: int 
     if redirect:
         return RedirectResponse(urls["audio_url"], status_code=302)
     return await _proxy_stream(urls["audio_url"], request, force_content_type="audio/mp4")
+
+
+@router.get("/api/stream/audio/{bvid}/{page}")
+async def stream_audio_with_page(
+    bvid: str,
+    page: int,
+    request: Request,
+    quality: int = 1,
+    redirect: int = 0,
+):
+    """Proxy or redirect the audio track, taking page from the URL path."""
+    return await stream_audio(bvid=bvid, request=request, page=page, quality=quality, redirect=redirect)
 
 
 @router.get("/api/stream/merged/{bvid}")
@@ -239,11 +266,22 @@ async def stream_mpd(bvid: str, request: Request, page: int = 0, quality: int = 
 
 
 @router.get("/api/thumb")
-async def proxy_thumb(url: str = Query(...)):
+async def proxy_thumb(url: str | None = Query(None), base64url: str | None = Query(None)):
     """Proxy a Bilibili CDN image with the required Referer header."""
+    if base64url:
+        try:
+            padded = base64url + ("=" * (-len(base64url) % 4))
+            target_url = base64.urlsafe_b64decode(padded.encode("utf-8")).decode("utf-8")
+        except (binascii.Error, UnicodeDecodeError, ValueError):
+            raise HTTPException(400, "Invalid base64url")
+    elif url:
+        target_url = url
+    else:
+        raise HTTPException(400, "Provide url or base64url")
+
     async with httpx.AsyncClient(timeout=10, follow_redirects=True) as client:
         try:
-            r = await client.get(url, headers={
+            r = await client.get(target_url, headers={
                 "Referer": "https://www.bilibili.com/",
                 "User-Agent": BILIBILI_HEADERS["User-Agent"],
             })

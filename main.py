@@ -22,6 +22,7 @@ from api.proxy import router as proxy_router
 
 from pathlib import Path
 import re
+import base64
 
 app = FastAPI(title="Bilibili Proxy Player")
 
@@ -119,24 +120,35 @@ async def m3u_playlist(request: Request, video: int = 1, redirect: int = -1,
     if video:
         # use low quality flv stream from bilibili directly
         stream_path = "video"
-        suffix = "&quality=0"
+        quality = 0
         redirect = 0 if redirect == -1 else redirect
     else:
         stream_path = "audio"
-        suffix = f"&quality={max(int(quality),1)}"
+        quality = max(int(quality),1)
         redirect = 0 if redirect == -1 else redirect
-    suffix += "&redirect=1" if redirect else ""
+    query_params = f"quality={quality}&redirect={redirect}"
 
     lines = ["#EXTM3U", f"# Source: {request.url}"]
     for item in items:
         bvid = item.bvid
-        title = item.title or bvid
-        if item.multipage:
-            title += f" (P{item.page+1})"
         duration = int(item.duration or 0)
         page = int(item.page or 0)
-        lines.append(f"#EXTINF:{duration},{title}")
-        lines.append(f"{base}/api/stream/{stream_path}/{bvid}?page={page}{suffix}")
+        title = item.title or bvid
+        vid_id = bvid
+        owner = item.owner or "Unknown"
+        if item.multipage:
+            title += f" (P{item.page+1})"
+            vid_id += f"_p{page}"
+
+
+        lines.append(f'#EXTINF:{duration} tvg-id="{vid_id}"')
+        if item.cover:
+            base64_cover = base64.b64encode(item.cover.encode()).decode()
+            cover_url = str(request.url_for("proxy_thumb").include_query_params(base64url=base64_cover))
+            lines[-1] += f' tvg-logo="{cover_url}" cover="{cover_url}" logo="{cover_url}", {title}'
+        else:
+            lines[-1] += f', {title}'
+        lines.append(f"{base}/api/stream/{stream_path}/{bvid}/{page}?{query_params}")
 
     return PlainTextResponse(
         "\n".join(lines) + "\n",

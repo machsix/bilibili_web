@@ -110,6 +110,11 @@ mpv "http://localhost:8000/m3u?uid=94286793&sid=7005584"
 | Reliability | Stable (your server buffers) | Depends on CDN expiry (~2h) |
 | Best for | Web browser, mpv on desktop | Mobile apps (Evermusic, VLC on iOS) |
 
+### Evermusic Notes
+
+- In Evermusic, set decoder/output to `CoreAudio` (instead of `AVFoundation`) for better compatibility with these streams.
+- For audio playlists, use `video=0`; `/m3u` now emits WebDAV-style unique audio paths so multi-page tracks (P2/P3/...) are kept as separate entries.
+
 Default behavior used by `/m3u` today:
 
 - `video=1`: defaults to `quality=0` and `redirect=1`
