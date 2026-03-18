@@ -101,6 +101,23 @@
     return `/api/thumb?url=${encodeURIComponent(url)}`;
   }
 
+  function updateMediaSession(idx) {
+    if (!('mediaSession' in navigator)) return;
+    const item = playlist[idx];
+    if (!item) return;
+    navigator.mediaSession.metadata = new MediaMetadata({
+      title:   item.title,
+      artwork: item.cover ? [{ src: thumbUrl(item.cover) }] : [],
+    });
+    navigator.mediaSession.setActionHandler('previoustrack',
+      idx > 0 ? () => playItem(idx - 1) : null);
+    navigator.mediaSession.setActionHandler('nexttrack',
+      idx < playlist.length - 1 ? () => playItem(idx + 1) : null);
+    // Suppress Safari's default ±10 s seek buttons so prev/next track show instead.
+    try { navigator.mediaSession.setActionHandler('seekforward',  null); } catch {}
+    try { navigator.mediaSession.setActionHandler('seekbackward', null); } catch {}
+  }
+
   function destroyArt() {
     if (!art) return;
     try {
@@ -282,16 +299,7 @@
     coverTitle.textContent = item.title;
 
     // ── Media Session (lock screen controls) ────────────────────────────────
-    if ('mediaSession' in navigator) {
-      navigator.mediaSession.metadata = new MediaMetadata({
-        title:   item.title,
-        artwork: item.cover ? [{ src: thumbUrl(item.cover) }] : [],
-      });
-      navigator.mediaSession.setActionHandler('previoustrack',
-        idx > 0 ? () => playItem(idx - 1) : null);
-      navigator.mediaSession.setActionHandler('nexttrack',
-        idx < playlist.length - 1 ? () => playItem(idx + 1) : null);
-    }
+    updateMediaSession(idx);
 
     showSpinner(true);
     errorBanner.classList.add('hidden');
@@ -367,6 +375,9 @@
   audioPlayer.addEventListener('ended', onAudioEnded);
   audioPlayer.addEventListener('waiting', () => showSpinner(true));
   audioPlayer.addEventListener('canplay', () => showSpinner(false));
+  // Re-apply Media Session handlers every time audio plays — iOS Safari resets
+  // them to seek-button defaults when play() fires on an <audio> element.
+  audioPlayer.addEventListener('play', () => updateMediaSession(currentIndex));
 
   // ── Controls ──────────────────────────────────────────────────────────────
   prevBtn.addEventListener('click', () => playItem(currentIndex - 1));
