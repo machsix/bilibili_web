@@ -1,0 +1,17 @@
+services:
+  bilibili-web:
+    # Option A: build locally from Dockerfile
+    build:
+      context: .
+
+    # Option B: use prebuilt image from GHCR
+    # image: ghcr.io/machsix/bilibili_web:latest
+
+    container_name: bilibili_web
+    restart: unless-stopped
+    ports:
+      - "8000:8000"
+    environment:
+      PORT: "8000"
+      STREAM_CACHE_TTL: "3600"
+      STREAM_CHUNK_SIZE: "65536"
